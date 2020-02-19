@@ -152,18 +152,96 @@ bool Mob::targetInRange() {
 // PROJECT 3: 
 //  1) return a vector of mobs that we're colliding with
 //  2) handle collision with towers & river 
-std::shared_ptr<Mob> Mob::checkCollision() {
+
+void Mob::processBuildingCollision() {
+	for (std::shared_ptr<Building> building : GameState::buildings) {
+		float xDist = this->getPosition()->x - building->getPosition()->x;
+		float yDist = this->getPosition()->y - building->getPosition()->y;
+		float touchDist = (this->GetSize() + building->GetSize()) / 2.0;
+		if (abs(xDist) >= touchDist || abs(yDist) >= touchDist) {
+			//no collision, no need to move
+			continue;
+		}
+		Point movementVector;
+		movementVector.x = 0;
+		movementVector.y = 0;
+		if (touchDist > xDist&& xDist >= 0) {
+			movementVector.x = touchDist - xDist;
+		}
+		else if (touchDist > -xDist && xDist < 0) {
+			movementVector.x = -touchDist - xDist;
+		}
+		if (touchDist > yDist&& yDist > 0) {
+			movementVector.y = touchDist - yDist;
+		}
+		else if (touchDist > -yDist && yDist < 0) {
+			movementVector.y = -touchDist - yDist;
+		}
+		pos += movementVector; // we always move
+	}
+}
+
+std::vector<std::shared_ptr<Mob>> Mob::checkCollision() {
+	std::vector<std::shared_ptr<Mob>> collisions;
 	for (std::shared_ptr<Mob> otherMob : GameState::mobs) {
 		// don't collide with yourself
 		if (this->sameMob(otherMob)) { continue; }
 
 		// PROJECT 3: YOUR CODE CHECKING FOR A COLLISION GOES HERE
+		float xDist = abs(this->getPosition()->x - otherMob->getPosition()->x);
+		float yDist = abs(this->getPosition()->y - otherMob->getPosition()->y);
+		float touchDist = (this->GetSize() + otherMob->GetSize()) / 2.0;
+		if (xDist < touchDist && yDist < touchDist) {
+			collisions.push_back(otherMob);
+		}
 	}
-	return std::shared_ptr<Mob>(nullptr);
+	return collisions;
 }
 
 void Mob::processCollision(std::shared_ptr<Mob> otherMob, double elapsedTime) {
 	// PROJECT 3: YOUR COLLISION HANDLING CODE GOES HERE
+	Point movementVector;
+	float xDist = this->getPosition()->x - otherMob->getPosition()->x;
+	float yDist = this->getPosition()->y - otherMob->getPosition()->y;
+	float touchDist = ((this->GetSize() + otherMob->GetSize()) / 2.0);
+	movementVector.x = 0;
+	movementVector.y = 0;
+	if (touchDist > xDist && xDist >= 0) {
+		movementVector.x = touchDist - xDist;
+	}
+	else if (touchDist > -xDist && xDist < 0) {
+		movementVector.x = -touchDist - xDist;
+	}
+	if (touchDist > yDist&& yDist > 0) {
+		movementVector.y = touchDist - yDist;
+	}
+	else if (touchDist > -yDist && yDist < 0) {
+		movementVector.y = -touchDist - yDist;
+	}
+
+	movementVector *= 2; //just to see it more
+	
+	//movement at this point is calibrated for us moving back and them not moving
+	if (otherMob->GetMass() > this->GetMass()) {
+		//we should get pushed back
+		pos += movementVector;
+		printf("They are greater mass collision");
+	}
+	else if (otherMob->GetMass() == this->GetMass()) {
+		printf("Equal mass collision");
+		//move both half
+		movementVector *= 0.5;
+		pos += movementVector;
+		movementVector *= -1;
+		otherMob->pos = otherMob->pos + movementVector;
+	}
+	else {
+		//they should get pushed back
+		movementVector *= -1;
+		otherMob->pos = otherMob->pos + movementVector;
+		printf("We are greater mass collision");
+	}
+	
 }
 
 // Collisions
@@ -206,10 +284,14 @@ void Mob::moveProcedure(double elapsedTime) {
 
 		// PROJECT 3: You should not change this code very much, but this is where your 
 		// collision code will be called from
-		std::shared_ptr<Mob> otherMob = this->checkCollision();
-		if (otherMob) {
-			this->processCollision(otherMob, elapsedTime);
+		std::vector<std::shared_ptr<Mob>> otherMobs = this->checkCollision();
+		for (std::shared_ptr<Mob> otherMob : otherMobs) {
+			if (otherMob) {
+				this->processCollision(otherMob, elapsedTime);
+			}
 		}
+
+		this->processBuildingCollision();
 
 		// Fighting otherMob takes priority always
 		findAndSetAttackableMob();

@@ -93,7 +93,9 @@ protected:
 	////////////////////////////////////////////////////////////
 	// Collisions
 
-	std::shared_ptr<Mob> checkCollision();
+	void processBuildingCollision();
+	
+	std::vector<std::shared_ptr<Mob>> checkCollision();
 
 	void processCollision(std::shared_ptr<Mob> otherMob, double elapsedTime);
 
