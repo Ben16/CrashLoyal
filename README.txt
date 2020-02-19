@@ -17,5 +17,3 @@ the SDL documentation: https://wiki.libsdl.org/FrontPage
 For some concrete examples on how to use SDL, please check out Lazy Foo:
 http://lazyfoo.net/tutorials/SDL/index.php
 
-
-g++.exe CrashLoyal/src/*.cpp -I./external/SDL2/include -I./external/SDL2_image/include -I./external/SDL2_ttf/include -L./lib -L./external/SDL2_image/lib/x86 -w -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -o crashloyal
