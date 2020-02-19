@@ -153,7 +153,7 @@ bool Mob::targetInRange() {
 //  1) return a vector of mobs that we're colliding with
 //  2) handle collision with towers & river 
 
-void Mob::processBuildingCollision() {
+void Mob::processBuildingCollision(double elapsedTime) {
 	for (std::shared_ptr<Building> building : GameState::buildings) {
 		float xDist = this->getPosition()->x - building->getPosition()->x;
 		float yDist = this->getPosition()->y - building->getPosition()->y;
@@ -177,8 +177,59 @@ void Mob::processBuildingCollision() {
 		else if (touchDist > -yDist && yDist < 0) {
 			movementVector.y = -touchDist - yDist;
 		}
-		pos += movementVector; // we always move
+
+		movementVector.normalize();
+		movementVector *= elapsedTime;
+
+		this->pos += movementVector; // we always move
 	}
+}
+
+void Mob::processRiverCollision(double elapsedTime) {
+	if ((RIVER_TOP_Y >= this->getPosition()->y + (this->GetSize() / 2.0))
+		|| (RIVER_BOT_Y <= this->getPosition()->y - (this->GetSize() / 2.0))) {
+		//we're outside the vertical river strip. Do nothing.
+		return;
+	}
+	Point movementVector;
+	movementVector.x = 0;
+	movementVector.y = 0;
+	if (this->getPosition()->x - (this->GetSize() / 2.0) < LEFT_BRIDGE_CENTER_X - (BRIDGE_WIDTH / 2.0)) {
+		//we are in the left river segment
+		if (this->getPosition()->x - (this->GetSize() / 2.0) < ((LEFT_BRIDGE_CENTER_X - (BRIDGE_WIDTH / 2.0)) / 2.0)) {
+			//we are really far left in the river. just move right.
+			movementVector.x = 1.0;
+		}
+		else {
+			movementVector.x = this->getPosition()->x - (this->GetSize() / 2.0) - ((LEFT_BRIDGE_CENTER_X - (BRIDGE_WIDTH / 2.0)) / 2.0);
+		}
+	} else if (this->getPosition()->x + (this->GetSize() / 2.0) > LEFT_BRIDGE_CENTER_X + (BRIDGE_WIDTH / 2.0)
+		&& this->getPosition()->x - (this->GetSize() / 2.0) <= RIGHT_BRIDGE_CENTER_X - (BRIDGE_WIDTH / 2.0)) {
+		//we are in the center river
+		//we need to always have horizontal movement, so no widths here, just distance from center
+		movementVector.x = this->getPosition()->x - GAME_GRID_WIDTH / 2.0;
+	} else if (this->getPosition()->x + (this->GetSize() / 2.0) > RIGHT_BRIDGE_CENTER_X + (BRIDGE_WIDTH / 2.0)) {
+		//we are in the right river segment
+		if (this->getPosition()->x + (this->GetSize() / 2.0) >= ((RIGHT_BRIDGE_CENTER_X + (BRIDGE_WIDTH / 2.0) + GAME_GRID_WIDTH) / 2.0)) {
+			//we are really far right in the river. just move left.
+			movementVector.x = -1.0;
+		}
+		else {
+			movementVector.x = this->getPosition()->x + (this->GetSize() / 2.0) - ((RIGHT_BRIDGE_CENTER_X + (BRIDGE_WIDTH / 2.0) + GAME_GRID_WIDTH) / 2.0);
+		}
+	}
+	else {
+		//we're on a bridge. don't need to do anything...
+		return;
+	}
+
+	//now that we have x, let's get y
+	movementVector.y = this->getPosition()->y - (GAME_GRID_HEIGHT / 2.0); // once again, don't use sides, just center points
+
+	movementVector.normalize();
+	movementVector *= elapsedTime;
+	this->pos += movementVector;
+
 }
 
 std::vector<std::shared_ptr<Mob>> Mob::checkCollision() {
@@ -219,19 +270,18 @@ void Mob::processCollision(std::shared_ptr<Mob> otherMob, double elapsedTime) {
 		movementVector.y = -touchDist - yDist;
 	}
 
-	movementVector *= 2; //just to see it more
+	movementVector.normalize();
+	movementVector *= elapsedTime;
 	
 	//movement at this point is calibrated for us moving back and them not moving
 	if (otherMob->GetMass() > this->GetMass()) {
 		//we should get pushed back
-		pos += movementVector;
-		printf("They are greater mass collision");
+		this->pos += movementVector;
 	}
 	else if (otherMob->GetMass() == this->GetMass()) {
-		printf("Equal mass collision");
 		//move both half
 		movementVector *= 0.5;
-		pos += movementVector;
+		this->pos += movementVector;
 		movementVector *= -1;
 		otherMob->pos = otherMob->pos + movementVector;
 	}
@@ -239,7 +289,6 @@ void Mob::processCollision(std::shared_ptr<Mob> otherMob, double elapsedTime) {
 		//they should get pushed back
 		movementVector *= -1;
 		otherMob->pos = otherMob->pos + movementVector;
-		printf("We are greater mass collision");
 	}
 	
 }
@@ -291,7 +340,9 @@ void Mob::moveProcedure(double elapsedTime) {
 			}
 		}
 
-		this->processBuildingCollision();
+		this->processBuildingCollision(elapsedTime);
+
+		this->processRiverCollision(elapsedTime);
 
 		// Fighting otherMob takes priority always
 		findAndSetAttackableMob();
