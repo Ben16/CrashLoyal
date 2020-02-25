@@ -305,6 +305,18 @@ void Mob::attackProcedure(double elapsedTime) {
 		return;
 	}
 
+	//check collisions
+	std::vector<std::shared_ptr<Mob>> otherMobs = this->checkCollision();
+	for (std::shared_ptr<Mob> otherMob : otherMobs) {
+		if (otherMob) {
+			this->processCollision(otherMob, elapsedTime);
+		}
+	}
+
+	this->processBuildingCollision(elapsedTime);
+
+	this->processRiverCollision(elapsedTime);
+
 	if (targetInRange()) {
 		if (this->lastAttackTime >= this->GetAttackTime()) {
 			// If our last attack was longer ago than our cooldown
